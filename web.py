@@ -30,7 +30,9 @@ def submit_answer(question, answer):
         if answer['num'] in correct_list:
             correct_list.remove(answer['num'])
 
-    wrong_answers[answer['subject']][answer['exam_paper']][answer['section']] = {'正确': correct_list}
+    wrong_answers.setdefault(answer['subject'], {}) \
+        .setdefault(answer['exam_paper'], {}) \
+        [answer['section']] = {'正确': correct_list}
     with open(wrong_answers_file, 'w', encoding='utf-8') as f:
         json.dump(wrong_answers, f, ensure_ascii=False, indent=4)
 
@@ -39,7 +41,7 @@ def submit_answer(question, answer):
 
 def make_components(num, label):
     info = {'label': label, 'num': num, 'component': {}}
-    info['component']['accordion'] = gr.Accordion(label=info['label'])
+    info['component']['accordion'] = gr.Accordion(label=info['label'], visible=False)
     with info['component']['accordion']:
         for i in range(1, info['num'] + 1):
             i = str(i)
@@ -151,6 +153,39 @@ def load_components(components):
     return result
 
 
+def offload_markdown():
+    exam_data, wrong_answers = load_data(exam_data_path, wrong_answers_file)
+
+    for subject in exam_data:
+        # make a markdown table with question, choices, answer, and correctness
+        markdown = '试卷|题型|题号|题目|选项|答案|曾回答正确|\n'
+        markdown += '|----|----|----|----|----|----|----|\n'  # Separator line
+
+        for exam_paper in exam_data[subject]:
+            for section in exam_data[subject][exam_paper]:
+                question_data = exam_data[subject][exam_paper][section]
+                question_nums = list(question_data.keys())
+                correct_list = wrong_answers.get(subject, {}).get(exam_paper, {}).get(section, {}).get('正确', [])
+                for num in question_nums:
+                    question = question_data[num]['question']
+                    choices = question_data[num].get('choices', [])
+                    answer = question_data[num]['answer']
+                    correct = '<p style="color:green">是</p>' if num in correct_list else '<p style="color:red">否</p>'
+
+                    # Escape special characters
+                    question = question.replace('|', '\\|').replace('\n', ' ')
+                    choices = ' '.join(choices).replace('|', '\\|').replace('\n', ' ')
+                    answer = str(answer).replace('|', '\\|').replace('\n', ' ')
+
+                    # Append to markdown
+                    markdown += f"|{exam_paper}|{section}|{num}|{question}|{choices}|{answer}|{correct}|\n"
+
+        with open(f'resource/{subject}.md', 'w', encoding='utf-8') as f:
+            f.write(markdown)
+
+    gr.Info("Markdown导出成功")
+
+
 def load_website(exam_data):
     global components
     with gr.Blocks() as demo:
@@ -169,6 +204,7 @@ def load_website(exam_data):
                 label="模式", choices=["正常答题", "错题重答", "错题集"], value="正常答题", interactive=True
             )
             load_button = gr.Button("加载试题")
+            offload_button = gr.Button("导出Markdown")
 
         components = {'单选题': make_components(40, '单选题'),
                       '多选题': make_components(40, '多选题'),
@@ -180,6 +216,7 @@ def load_website(exam_data):
         load_button.click(load_sections,
                           inputs=[subject_dropdown, exam_paper_dropdown, mode_dropdown],
                           outputs=load_components(components))
+        offload_button.click(offload_markdown)
 
     demo.launch()
 
