@@ -128,7 +128,7 @@ def extract_htmls(base_url, urls, stored_dir='./resource/web'):
         results[urls[url]] = extract_form(result)
 
     # Save the results to a file as utf-8 encoding
-    with open('./resource/exam - 副本.json', 'w', encoding='utf-8') as f:
+    with open('./resource/exam.json', 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
 
 

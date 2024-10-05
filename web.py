@@ -15,6 +15,28 @@ def load_data(exam_data_path, wrong_answers_file):
     return exam_data, wrong_answers
 
 
+def submit_answer(question, answer):
+    _, wrong_answers = load_data(exam_data_path, wrong_answers_file)
+    answer = answer.value
+    previous_state = wrong_answers.get(answer['subject'], {}).get(answer['exam_paper'], {}).get(answer['section'], {})
+    correct_list = previous_state.get('正确', [])
+    correct_answer = answer['answer'] if answer['section'] != '多选题' else ''.join([i[0] for i in answer['answer']])
+
+    if question == answer['answer']:
+        dialog = f"<p style='color:green'>正确，答案：{correct_answer}</p>"
+        correct_list.append(answer['num'])
+    else:
+        dialog = f"<p style='color:red'>错误，答案：{correct_answer}</p>"
+        if answer['num'] in correct_list:
+            correct_list.remove(answer['num'])
+
+    wrong_answers[answer['subject']][answer['exam_paper']][answer['section']] = {'正确': correct_list}
+    with open(wrong_answers_file, 'w', encoding='utf-8') as f:
+        json.dump(wrong_answers, f, ensure_ascii=False, indent=4)
+
+    return gr.HTML(dialog, visible=True)
+
+
 def make_components(num, label):
     info = {'label': label, 'num': num, 'component': {}}
     info['component']['accordion'] = gr.Accordion(label=info['label'])
@@ -32,7 +54,12 @@ def make_components(num, label):
                     info['component'][i]['question'] = gr.Radio(visible=True)
                 info['component'][i]['submission'] = gr.Button("提交答案")
                 info['component'][i]['answer'] = gr.State()
-                info['component'][i]['answer_dialog'] = gr.Markdown(visible=False)
+                info['component'][i]['answer_dialog'] = gr.HTML(visible=False)
+
+            info['component'][i]['submission'].click(submit_answer,
+                                                     inputs=[info['component'][i]['question'],
+                                                             info['component'][i]['answer']],
+                                                     outputs=[info['component'][i]['answer_dialog']])
     return info
 
 
@@ -43,10 +70,13 @@ def load_section(subject, exam_paper, mode, section, exam_data, wrong_answers):
     if mode == '正常答题':
         required_questions = question_nums
     else:
-        required_questions = wrong_answers.get(subject, {}).get(exam_paper, {}).get(section, [])
-    print(mode, section, required_questions)
+        tmp = wrong_answers.get(subject, {}).get(exam_paper, {}).get(section, {}).get('正确', [])
+        required_questions = [num for num in question_nums if num not in tmp]
 
-    updated_components = {}
+    if len(required_questions) == 0:
+        return {components[section]['component']['accordion']: gr.Accordion(visible=False)}
+
+    updated_components = {components[section]['component']['accordion']: gr.Accordion(visible=True)}
     for num in question_nums:
         question = question_data[num]['question']
         choices = question_data[num].get('choices', ['对', '错'])
@@ -54,6 +84,8 @@ def load_section(subject, exam_paper, mode, section, exam_data, wrong_answers):
 
         button = gr.Button(visible=True)
         accordion = gr.Accordion(visible=False)
+        state = gr.State(value={'subject': subject, 'exam_paper': exam_paper, 'section': section, 'num': num,
+                                'answer': answer if section == '多选题' else answer[0]})
 
         if num in required_questions:
             accordion = gr.Accordion(visible=True)
@@ -89,8 +121,8 @@ def load_section(subject, exam_paper, mode, section, exam_data, wrong_answers):
         updated_components[components[section]['component'][num]['label']] = accordion
         updated_components[components[section]['component'][num]['question']] = question
         updated_components[components[section]['component'][num]['submission']] = button
-        updated_components[components[section]['component'][num]['answer']] = gr.State(value=answer)
-        updated_components[components[section]['component'][num]['answer_dialog']] = gr.Markdown(visible=False)
+        updated_components[components[section]['component'][num]['answer']] = state
+        updated_components[components[section]['component'][num]['answer_dialog']] = gr.HTML(visible=False)
 
     return updated_components
 
@@ -111,6 +143,7 @@ def load_components(components):
 
     for section in components:
         questions = components[section]['component'].keys()
+        result.extend([components[section]['component']['accordion']])
         for question in questions:
             if question != 'accordion':
                 result.extend(list(components[section]['component'][question].values()))
