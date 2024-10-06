@@ -2,3 +2,4 @@
 test.py
 resource/*.json
 resource/*.md
+resource/output

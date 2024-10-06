@@ -23,8 +23,9 @@ def submit_answer(question, answer):
     previous_state = wrong_answers.get(answer['subject'], {}).get(answer['exam_paper'], {}).get(answer['section'], {})
     correct_list = previous_state.get('正确', [])
     correct_answer = answer['answer'] if answer['section'] != '多选题' else ''.join([i[0] for i in answer['answer']])
+    question = sorted(question) if isinstance(question, list) else question
 
-    if sorted(question) == answer['answer']:
+    if question == answer['answer']:
         dialog = f"<p style='color:green'>正确，答案：{correct_answer}</p>"
         correct_list.append(answer['num'])
     else:
