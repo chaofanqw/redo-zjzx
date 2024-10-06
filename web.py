@@ -3,6 +3,8 @@ import gradio as gr
 import os
 import json
 
+import pandas as pd
+
 
 def load_data(exam_data_path, wrong_answers_file):
     exam_data = open(exam_data_path, 'r', encoding='utf-8')
@@ -22,7 +24,7 @@ def submit_answer(question, answer):
     correct_list = previous_state.get('正确', [])
     correct_answer = answer['answer'] if answer['section'] != '多选题' else ''.join([i[0] for i in answer['answer']])
 
-    if question == answer['answer']:
+    if sorted(question) == answer['answer']:
         dialog = f"<p style='color:green'>正确，答案：{correct_answer}</p>"
         correct_list.append(answer['num'])
     else:
@@ -153,10 +155,15 @@ def load_components(components):
     return result
 
 
-def offload_markdown():
+def offload_markdown(output_path='./resource/output/'):
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
     exam_data, wrong_answers = load_data(exam_data_path, wrong_answers_file)
 
     for subject in exam_data:
+        # make dataframe with following info 试卷|题型|题号|题目|选项|答案|曾回答正确
+        rows = []
+
         # make a markdown table with question, choices, answer, and correctness
         markdown = '试卷|题型|题号|题目|选项|答案|曾回答正确|\n'
         markdown += '|----|----|----|----|----|----|----|\n'  # Separator line
@@ -179,11 +186,15 @@ def offload_markdown():
 
                     # Append to markdown
                     markdown += f"|{exam_paper}|{section}|{num}|{question}|{choices}|{answer}|{correct}|\n"
+                    rows.append({'试卷': exam_paper, '题型': section, '题号': num, '题目': question, '选项': choices,
+                                 '答案': answer, '曾回答正确': '是' if num in correct_list else '否'})
 
-        with open(f'resource/{subject}.md', 'w', encoding='utf-8') as f:
+        with open(f'{output_path}{subject}.md', 'w', encoding='utf-8') as f:
             f.write(markdown)
+        pd.DataFrame(rows, columns=['试卷', '题型', '题号', '题目', '选项', '答案', '曾回答正确']). \
+            to_excel(f'{output_path}{subject}.xlsx', index=False)
 
-    gr.Info("Markdown导出成功")
+    gr.Info("Markdown, Excel导出成功")
 
 
 def load_website(exam_data):
