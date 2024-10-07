@@ -27,7 +27,8 @@ def submit_answer(question, answer):
 
     if question == answer['answer']:
         dialog = f"<p style='color:green'>正确，答案：{correct_answer}</p>"
-        correct_list.append(answer['num'])
+        if answer['num'] not in correct_list:
+            correct_list.append(answer['num'])
     else:
         dialog = f"<p style='color:red'>错误，答案：{correct_answer}</p>"
         if answer['num'] in correct_list:
@@ -216,7 +217,7 @@ def load_website(exam_data):
                 label="模式", choices=["正常答题", "错题重答", "错题集"], value="正常答题", interactive=True
             )
             load_button = gr.Button("加载试题")
-            offload_button = gr.Button("导出Markdown")
+            offload_button = gr.Button("导出数据")
 
         components = {'单选题': make_components(40, '单选题'),
                       '多选题': make_components(40, '多选题'),
