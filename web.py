@@ -32,7 +32,8 @@ def submit_answer(question, answer):
     else:
         dialog = f"<p style='color:red'>错误，答案：{correct_answer}</p>"
         if answer['num'] in correct_list:
-            correct_list.remove(answer['num'])
+            for _ in range(correct_list.count(answer['num'])):
+                correct_list.remove(answer['num'])
 
     wrong_answers.setdefault(answer['subject'], {}) \
         .setdefault(answer['exam_paper'], {}) \
