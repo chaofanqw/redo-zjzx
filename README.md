@@ -8,10 +8,10 @@ pip install -r requirements.txt
 ## run the code
 ```bash
 # download and extract data
-python extraction.py
+python extraction-web.py
 
 # run the gradio interface
-python web.py
+python web-update.py
 ```
 
 ## usage
